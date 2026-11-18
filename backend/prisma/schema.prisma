@@ -1,0 +1,308 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Restaurant {
+  id               Int               @id @default(autoincrement())
+  name             String
+  description      String?
+  active           Boolean           @default(true)
+  products         Product[]
+  createdAt        DateTime          @default(now())
+  restaurantOrders RestaurantOrder[]
+}
+
+model Product {
+  id            Int                   @id @default(autoincrement())
+  name          String
+  description   String?
+  restaurantId  Int
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id])
+  variants      ProductVariant[]
+  semanticIndex ProductSemanticIndex?
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  name      String
+  price     Decimal @db.Decimal(10, 2)
+  available Boolean @default(true)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  cartItems     CartItem[]
+  proposalItems CartProposalItem[]
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKED_OUT
+}
+
+enum CartProposalItemAction {
+  ADD
+  SET_QUANTITY
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  tokenHash String?    @unique
+  status    CartStatus @default(ACTIVE)
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  items CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId], where: { status: "ACTIVE" }, map: "cart_one_active_per_user")
+}
+
+model CartItem {
+  id       Int @id @default(autoincrement())
+  quantity Int @default(1)
+
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, variantId])
+}
+
+enum UserRole {
+  CUSTOMER
+  RESTAURANT_OWNER
+  ADMIN
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(CUSTOMER)
+  active       Boolean  @default(true)
+
+  addresses Address[]
+  carts     Cart[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  assistantConversations AssistantConversation[]
+  cartProposals          CartProposal[]
+}
+
+model Address {
+  id           Int     @id @default(autoincrement())
+  label        String?
+  street       String
+  number       String
+  neighborhood String?
+  complement   String?
+  city         String
+  state        String
+  postalCode   String
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  CANCELLED
+}
+
+enum RestaurantOrderStatus {
+  CREATED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  status OrderStatus @default(CREATED)
+
+  subtotal      Decimal @db.Decimal(10, 2)
+  deliveryTotal Decimal @db.Decimal(10, 2)
+  total         Decimal @db.Decimal(10, 2)
+
+  addressSnapshot Json
+
+  idempotencyKey     String
+  requestFingerprint String
+
+  restaurantOrders RestaurantOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, idempotencyKey])
+}
+
+model RestaurantOrder {
+  id Int @id @default(autoincrement())
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  restaurantName String
+
+  status RestaurantOrderStatus @default(CREATED)
+
+  subtotal    Decimal @db.Decimal(10, 2)
+  deliveryFee Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id Int @id @default(autoincrement())
+
+  restaurantOrderId Int
+  restaurantOrder   RestaurantOrder @relation(fields: [restaurantOrderId], references: [id])
+
+  variantId   Int
+  productName String
+  variantName String
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  lineTotal Decimal @db.Decimal(10, 2)
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum CartProposalStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+}
+
+model AssistantConversation {
+  id String @id @default(uuid())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  messages  AssistantMessage[]
+  proposals CartProposal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model AssistantMessage {
+  id Int @id @default(autoincrement())
+
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    AssistantMessageRole
+  content String               @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, id])
+}
+
+model CartProposal {
+  id String @id @default(uuid())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  status CartProposalStatus @default(PENDING)
+
+  expiresAt   DateTime
+  confirmedAt DateTime?
+
+  items CartProposalItem[]
+
+  createdAt DateTime @default(now())
+
+  action           CartProposalItemAction @default(ADD)
+  expectedQuantity Int?
+  targetQuantity   Int?
+
+  @@index([userId, status])
+}
+
+model CartProposalItem {
+  id Int @id @default(autoincrement())
+
+  proposalId String
+  proposal   CartProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  productName    String
+  variantName    String
+  restaurantName String
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  action           CartProposalItemAction @default(ADD)
+  expectedQuantity Int?
+  targetQuantity   Int?
+
+  @@unique([proposalId, variantId])
+}
+
+model ProductSemanticIndex {
+  productId Int     @id
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  model     String   @db.VarChar(100)
+  textHash  String   @db.VarChar(64)
+  embedding Float[]
+  updatedAt DateTime @updatedAt
+}

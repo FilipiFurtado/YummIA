@@ -1,0 +1,19 @@
+Adicione estes trechos ao seu EXISTENTE prisma/schema.prisma:
+
+1) Dentro do model Product, adicione a relação inversa:
+
+  semanticIndex ProductSemanticIndex?
+
+2) Ao final do arquivo, adicione:
+
+model ProductSemanticIndex {
+  productId Int @id
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  model     String @db.VarChar(100)
+  textHash  String @db.VarChar(64)
+  embedding Float[]
+  updatedAt DateTime @updatedAt
+}
+
+OBS: Não apague nenhum model existente. A coluna embedding usa arrays PostgreSQL de double precision.
