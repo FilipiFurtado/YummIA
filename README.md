@@ -8,7 +8,7 @@ A solução utiliza **Next.js**, **NestJS**, **PostgreSQL**, **Prisma** e **Olla
 
 > **Status:** projeto em desenvolvimento, voltado à demonstração e ao aprendizado de engenharia de software e aplicações com LLMs. Os restaurantes, produtos e preços do catálogo inicial são fictícios. Não há integração de pagamento real documentada nesta versão.
 
-#✨ Funcionalidades
+# Funcionalidades
 
 ### Marketplace
 
