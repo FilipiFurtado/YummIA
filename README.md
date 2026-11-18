@@ -1,6 +1,7 @@
 # YummIA
 
 **Marketplace de restaurantes com assistente de compras baseado em inteligência artificial local.**
+**Este projeto ainda está em desenvolvimento, melhorias e correções ainda serão aplicadas.
 
 O **YummIA** é um projeto full-stack que reúne uma aplicação de delivery, gerenciamento de carrinho, checkout e um assistente conversacional capaz de pesquisar o catálogo, recomendar produtos e **preparar alterações no carrinho mediante confirmação explícita do usuário**.
 
